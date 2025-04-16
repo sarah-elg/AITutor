@@ -1,13 +1,5 @@
-
 import gradio as gr
 import random
-
-# Globale Variable für die aktuelle Frage
-current_question = {
-    "options": {},
-    "correct_answers": [],
-    "selected_answers": []
-}
 
 class GradioInterface:
     def __init__(self, tutor):
@@ -33,106 +25,110 @@ class GradioInterface:
                         title="BS2 Fragen"
                     )
 
-                # Tab 2: Automatischer Fragen-Modus
-                with gr.TabItem("Kurs Trainer"):
-                    gr.Markdown("Automatische Fragen")
+                # Tab 2: Trainer
+                with gr.TabItem("Trainer"):
+                    # Umschalter-Buttons für Fragetypen
+                    with gr.Row(equal_height=True):
+                        auto_btn = gr.Button("Automatische Fragen", size="lg", variant="primary")
+                        eigene_btn = gr.Button("Eigene Fragen", size="lg")
 
-                    # Auswahl des Fragetyps
-                    auto_question_type = gr.Radio(
-                        ["Multiple Choice (MC)", "Single Choice (SC)"],
-                        value="Multiple Choice (MC)",
-                        label="Fragetyp"
-                    )
+                    # Automatische Fragen-Bereich
+                    with gr.Column(visible=True) as auto_fragen_bereich:
+                        gr.Markdown("### Automatische Fragen")
+                        gr.Markdown("Lassen Sie sich automatisch Fragen generieren")
 
-                    auto_question_btn = gr.Button("Neue Frage")
-                    auto_question_output = gr.Markdown("Klicken Sie auf 'Neue Frage', um eine Frage zu generieren")
+                        # Fragetyp für automatische Fragen
+                        auto_question_type = gr.Radio(
+                            ["Multiple Choice (MC)", "Single Choice (SC)"],
+                            value="Multiple Choice (MC)",
+                            label="Fragetyp"
+                        )
 
-                    # Antwortbuttons - UNTEREINANDER angeordnet
-                    with gr.Group(visible=False) as auto_buttons_group:
+                        auto_question_btn = gr.Button("Neue Frage")
+                        auto_question_output = gr.Markdown("Klicken Sie auf 'Neue Frage', um eine Frage zu generieren")
+
+                    # Eigene Fragen-Bereich
+                    with gr.Column(visible=False) as eigene_fragen_bereich:
+                        gr.Markdown("### Eigene Fragen")
+                        gr.Markdown("Erstellen Sie eigene Fragen zu einem bestimmten Thema")
+
+                        # Eingabefeld für das Thema
+                        eigene_topic = gr.Textbox(
+                            placeholder="Geben Sie ein Thema ein (z.B. 'Process Mining')",
+                            label="Thema"
+                        )
+
+                        # Fragetyp für eigene Fragen
+                        eigene_type = gr.Radio(
+                            ["Multiple Choice (MC)", "Single Choice (SC)"],
+                            value="Multiple Choice (MC)",
+                            label="Fragetyp"
+                        )
+
+                        eigene_question_btn = gr.Button("Frage erstellen")
+                        eigene_question_output = gr.Markdown("Hier erscheint Ihre Frage")
+
+                    # Gemeinsame Antwortbuttons-Gruppe (wird für beide Fragetypen verwendet)
+                    with gr.Group(visible=False) as buttons_group:
                         gr.Markdown("### Wähle die richtige(n) Antwort(en):")
 
                         # Jeder Button in einer eigenen Zeile
-                        auto_btn_a = gr.Button("A", scale=1)
-                        auto_btn_b = gr.Button("B", scale=1)
-                        auto_btn_c = gr.Button("C", scale=1)
-                        auto_btn_d = gr.Button("D", scale=1)
+                        btn_a = gr.Button("A", scale=1)
+                        btn_b = gr.Button("B", scale=1)
+                        btn_c = gr.Button("C", scale=1)
+                        btn_d = gr.Button("D", scale=1)
 
                         # Ausgewählte Antworten anzeigen
-                        auto_selected = gr.Markdown("Ausgewählte Antworten: ")
+                        selected = gr.Markdown("Ausgewählte Antworten: ")
 
                     # Button zum Überprüfen der Antwort
-                    auto_check_btn = gr.Button("Antwort prüfen", visible=False)
-                    auto_result = gr.Markdown("")
+                    check_btn = gr.Button("Antwort prüfen", visible=False)
+                    result = gr.Markdown("")
 
-                    # Event-Handler
+                    # Umschaltfunktionen für die Buttons
+                    def show_auto_fragen():
+                        return gr.update(visible=True), gr.update(visible=False), gr.update(variant="primary"), gr.update(variant="secondary")
+
+                    def show_eigene_fragen():
+                        return gr.update(visible=False), gr.update(visible=True), gr.update(variant="secondary"), gr.update(variant="primary")
+
+                    # Event-Handler für die Umschaltbuttons
+                    auto_btn.click(
+                        show_auto_fragen,
+                        outputs=[auto_fragen_bereich, eigene_fragen_bereich, auto_btn, eigene_btn]
+                    )
+
+                    eigene_btn.click(
+                        show_eigene_fragen,
+                        outputs=[auto_fragen_bereich, eigene_fragen_bereich, auto_btn, eigene_btn]
+                    )
+
+                    # Event-Handler für automatische Fragen
                     auto_question_btn.click(
-                        self.update_auto_question,
+                        self.generate_random_question,
                         inputs=[auto_question_type],
-                        outputs=[auto_question_output, auto_buttons_group, auto_check_btn, auto_selected]
+                        outputs=[auto_question_output, eigene_question_output, buttons_group, check_btn, selected]
                     )
 
-                    # Handler für die Antwortbuttons
-                    auto_btn_a.click(lambda s: self.toggle_answer("A", s), inputs=[auto_selected], outputs=[auto_selected])
-                    auto_btn_b.click(lambda s: self.toggle_answer("B", s), inputs=[auto_selected], outputs=[auto_selected])
-                    auto_btn_c.click(lambda s: self.toggle_answer("C", s), inputs=[auto_selected], outputs=[auto_selected])
-                    auto_btn_d.click(lambda s: self.toggle_answer("D", s), inputs=[auto_selected], outputs=[auto_selected])
-
-                    # Handler für den Prüfen-Button
-                    auto_check_btn.click(self.check_answer, outputs=[auto_result])
-
-                # Tab 3: Eigener Fragen-Modus
-                with gr.TabItem("Eigene Trainer"):
-                    gr.Markdown("Erstellen Sie eigene Fragen zu einem bestimmten Thema")
-
-                    # Eingabefeld für das Thema und Auswahl des Fragetyps
-                    eigene_topic = gr.Textbox(
-                        placeholder="Geben Sie ein Thema ein (z.B. 'Process Mining')",
-                        label="Thema"
-                    )
-                    eigene_type = gr.Radio(
-                        ["Multiple Choice (MC)", "Single Choice (SC)"],
-                        value="Multiple Choice (MC)",
-                        label="Fragetyp"
-                    )
-
-                    eigene_question_btn = gr.Button("Frage erstellen")
-                    eigene_question_output = gr.Markdown("Hier erscheint Ihre Frage")
-
-                    # Antwortbuttons - UNTEREINANDER angeordnet
-                    with gr.Group(visible=False) as eigene_buttons_group:
-                        gr.Markdown("### Wähle die richtige(n) Antwort(en):")
-
-                        # Jeder Button in einer eigenen Zeile
-                        eigene_btn_a = gr.Button("A", scale=1)
-                        eigene_btn_b = gr.Button("B", scale=1)
-                        eigene_btn_c = gr.Button("C", scale=1)
-                        eigene_btn_d = gr.Button("D", scale=1)
-
-                        # Ausgewählte Antworten anzeigen
-                        eigene_selected = gr.Markdown("Ausgewählte Antworten: ")
-
-                    # Button zum Überprüfen der Antwort
-                    eigene_check_btn = gr.Button("Antwort prüfen", visible=False)
-                    eigene_result = gr.Markdown("")
-
-                    # Event-Handler
+                    # Event-Handler für eigene Fragen
                     eigene_question_btn.click(
-                        self.update_eigene_question,
+                        self.create_question,
                         inputs=[eigene_topic, eigene_type],
-                        outputs=[eigene_question_output, eigene_buttons_group, eigene_check_btn, eigene_selected]
+                        outputs=[eigene_question_output, auto_question_output, buttons_group, check_btn, selected]
                     )
 
                     # Handler für die Antwortbuttons
-                    eigene_btn_a.click(lambda s: self.toggle_answer("A", s), inputs=[eigene_selected], outputs=[eigene_selected])
-                    eigene_btn_b.click(lambda s: self.toggle_answer("B", s), inputs=[eigene_selected], outputs=[eigene_selected])
-                    eigene_btn_c.click(lambda s: self.toggle_answer("C", s), inputs=[eigene_selected], outputs=[eigene_selected])
-                    eigene_btn_d.click(lambda s: self.toggle_answer("D", s), inputs=[eigene_selected], outputs=[eigene_selected])
+                    btn_a.click(lambda s: self.toggle_answer("A", s), inputs=[selected], outputs=[selected])
+                    btn_b.click(lambda s: self.toggle_answer("B", s), inputs=[selected], outputs=[selected])
+                    btn_c.click(lambda s: self.toggle_answer("C", s), inputs=[selected], outputs=[selected])
+                    btn_d.click(lambda s: self.toggle_answer("D", s), inputs=[selected], outputs=[selected])
 
                     # Handler für den Prüfen-Button
-                    eigene_check_btn.click(self.check_answer, outputs=[eigene_result])
+                    check_btn.click(self.check_answer, outputs=[result])
 
         return demo
 
+    # Die restlichen Methoden bleiben unverändert
     def ask_question(self, message, history):
         try:
             response = self.tutor.ask_question(message)
@@ -140,9 +136,12 @@ class GradioInterface:
         except Exception as e:
             return f"Fehler bei der Verarbeitung der Frage: {str(e)}"
 
-    def generate_random_question(self, question_type="mc"):
+    def generate_random_question(self, question_type):
         # Zurücksetzen der ausgewählten Antworten
         self.current_question["selected_answers"] = []
+
+        # Bestimme den Fragetyp-Code
+        q_type_code = "mc" if "Multiple" in question_type else "sc"
 
         # Liste von möglichen Themen aus dem Hauptskript
         topics = ["Process Mining", "OLAP", "Data Warehouse", "ETL", "Business Intelligence",
@@ -151,19 +150,19 @@ class GradioInterface:
 
         # Zufälliges Thema auswählen
         random_topic = random.choice(topics)
-        print(f"Generiere {question_type.upper()}-Frage zum Thema: {random_topic}")
+        print(f"Generiere {q_type_code.upper()}-Frage zum Thema: {random_topic}")
 
         try:
             # Frage zum zufälligen Thema generieren
-            question_data = self.tutor.generate_question(random_topic, question_type)
+            question_data = self.tutor.generate_question(random_topic, q_type_code)
 
             if "error" in question_data:
-                return question_data["error"], gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
+                return question_data["error"], "", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
 
             # Speichere die aktuelle Frage
             self.current_question["options"] = question_data["options"]
             self.current_question["correct_answers"] = self.tutor.last_correct_answers
-            self.current_question["question_type"] = question_type
+            self.current_question["question_type"] = q_type_code
 
             # Formatiere die Ausgabe
             question_text = question_data["question_text"] + "\n\n"
@@ -172,28 +171,31 @@ class GradioInterface:
             for key, value in question_data["options"].items():
                 question_text += f"{key}) {value}\n"
 
-            return question_text, gr.update(visible=True), gr.update(visible=True), "Ausgewählte Antworten: "
+            return question_text, "", gr.update(visible=True), gr.update(visible=True), "Ausgewählte Antworten: "
         except Exception as e:
-            return f"Fehler bei der Fragen-Generierung: {str(e)}", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
+            return f"Fehler bei der Fragen-Generierung: {str(e)}", "", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
 
-    def create_question(self, topic, question_type="mc"):
+    def create_question(self, topic, question_type):
         # Zurücksetzen der ausgewählten Antworten
         self.current_question["selected_answers"] = []
 
         if not topic.strip():
-            return "Bitte geben Sie ein Thema ein", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
+            return "Bitte geben Sie ein Thema ein", "", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
+
+        # Bestimme den Fragetyp-Code
+        q_type_code = "mc" if "Multiple" in question_type else "sc"
 
         try:
             # Frage zum angegebenen Thema generieren
-            question_data = self.tutor.generate_question(topic, question_type)
+            question_data = self.tutor.generate_question(topic, q_type_code)
 
             if "error" in question_data:
-                return question_data["error"], gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
+                return question_data["error"], "", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
 
             # Speichere die aktuelle Frage
             self.current_question["options"] = question_data["options"]
             self.current_question["correct_answers"] = self.tutor.last_correct_answers
-            self.current_question["question_type"] = question_type
+            self.current_question["question_type"] = q_type_code
 
             # Formatiere die Ausgabe
             question_text = question_data["question_text"] + "\n\n"
@@ -202,9 +204,9 @@ class GradioInterface:
             for key, value in question_data["options"].items():
                 question_text += f"{key}) {value}\n"
 
-            return question_text, gr.update(visible=True), gr.update(visible=True), "Ausgewählte Antworten: "
+            return question_text, "", gr.update(visible=True), gr.update(visible=True), "Ausgewählte Antworten: "
         except Exception as e:
-            return f"Fehler bei der Fragen-Generierung: {str(e)}", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
+            return f"Fehler bei der Fragen-Generierung: {str(e)}", "", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
 
     def toggle_answer(self, answer_key, current_selection):
         # Extrahiere die aktuell ausgewählten Antworten
@@ -249,16 +251,3 @@ class GradioInterface:
             return result
         except Exception as e:
             return f"Fehler bei der Antwortprüfung: {str(e)}"
-
-    def update_auto_question(self, q_type):
-        q_type_code = "mc" if "Multiple" in q_type else "sc"
-        question_text, buttons_visible, check_visible, selected = self.generate_random_question(q_type_code)
-        return question_text, buttons_visible, check_visible, selected
-
-    def update_eigene_question(self, topic, q_type):
-        if not topic.strip():
-            return "Bitte geben Sie ein Thema ein", gr.update(visible=False), gr.update(visible=False), "Ausgewählte Antworten: "
-
-        q_type_code = "mc" if "Multiple" in q_type else "sc"
-        question_text, buttons_visible, check_visible, selected = self.create_question(topic, q_type_code)
-        return question_text, buttons_visible, check_visible, selected
