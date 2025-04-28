@@ -1,16 +1,15 @@
 from langchain_ollama import OllamaLLM
 
 class OptimizedBS2Tutor:
-    def _init_(self,vectorstore):
+    def __init__(self, vectorstore):
         self.vectorstore = vectorstore
         self.llm = OllamaLLM(model="llama3.2", temperature=0.0)
         self.last_correct_answers = []  # Für die Fragen-Generierung
 
-def ask_question(self, question, k=5, use_main_script_first=True):
+    def ask_question(self, question, k=5, use_main_script_first=True):
         """
         Beantwortet eine Frage basierend auf dem Hauptskript und der Literatur
         """
-
         try:
             # 1. Suche zuerst im Hauptskript, wenn gewünscht
             if use_main_script_first:
@@ -46,7 +45,7 @@ def ask_question(self, question, k=5, use_main_script_first=True):
         except Exception as e:
             return f"Fehler bei der Verarbeitung der Frage: {e}"
 
-def _is_insufficient_answer(self, answer):
+    def _is_insufficient_answer(self, answer):
         """Prüft, ob eine Antwort unzureichend ist"""
         insufficient_phrases = [
             "keine ausreichenden informationen",
@@ -60,21 +59,20 @@ def _is_insufficient_answer(self, answer):
         answer_lower = answer.lower()
         return any(phrase in answer_lower for phrase in insufficient_phrases)
 
-def _generate_answer(self, question, documents, language):
+    def _generate_answer(self, question, documents):
         """Generiert eine Antwort basierend auf den relevanten Dokumenten"""
         # Wähle den richtigen Prompt basierend auf der Sprache
         prompt = f"""
-            Du bist ein hilfreicher BS2-Tutor für das Fach "Business Software 2".
-            Beantworte die folgende Frage basierend auf den gegebenen Informationen.
-            Verwende nur die bereitgestellten Informationen. Wenn du die Antwort nicht in den
-            Informationen findest, sage das ehrlich.
-            Antworte auf Deutsch.
+        Du bist ein hilfreicher BS2-Tutor für das Fach "Business Software 2".
+        Beantworte die folgende Frage basierend auf den gegebenen Informationen.
+        Verwende nur die bereitgestellten Informationen. Wenn du die Antwort nicht in den
+        Informationen findest, sage das ehrlich.
+        Antworte auf Deutsch.
 
-            Frage: {question}
+        Frage: {question}
 
-            Relevante Informationen:
+        Relevante Informationen:
         """
-
 
         for i, doc in enumerate(documents):
             source_type = doc.metadata.get('source_type', 'Unbekannt')
@@ -88,7 +86,7 @@ def _generate_answer(self, question, documents, language):
         answer = self.llm.invoke(prompt)
         return answer
 
-def _format_response(self, answer, documents, source_label):
+    def _format_response(self, answer, documents, source_label):
         """Formatiert die Antwort mit Quellenangaben"""
         response = f"\nAntwort: {answer}\n\nQuellen ({source_label}):"
 
@@ -101,16 +99,16 @@ def _format_response(self, answer, documents, source_label):
 
         return response
 
-def generate_mc_question(self, topic):
+    def generate_mc_question(self, topic):
         """Generiert eine Multiple-Choice-Frage zum angegebenen Thema"""
-        
+
         # 1. Relevante Dokumente zum Thema finden
         relevant_docs = self.vectorstore.similarity_search(
             topic,
             k=2,
             filter={"source_type": "Hauptskript"}  # Bevorzuge Hauptskript für MC-Fragen
         )
-        
+
         if not relevant_docs:
             return "Ich konnte keine relevanten Informationen für eine Frage finden."
 
@@ -125,24 +123,23 @@ def generate_mc_question(self, topic):
         B) [Option B]
         C) [Option C]
         D) [Option D]
-        Richtige Antwort: [A/B/C/D]  
+        Richtige Antwort: [A/B/C/D]
         Die Frage sollte das Verständnis des Themas testen.
         """
         # 3. Frage generieren
-        question = self.llm.invoke(prompt) 
+        question = self.llm.invoke(prompt)
         # 4. Formatierte Ausgabe
         source_type = doc.metadata.get('source_type', 'Unbekannt')
         file_name = doc.metadata.get('file_name', 'Unbekannt')
         page = doc.metadata.get('page', 'Unbekannt')
-        
+
         return f"\nGenerierte Frage (Quelle: {source_type}, {file_name}, Seite {page}):\n{question}"
 
-def generate_question(self, topic, question_type="mc"):
+    def generate_question(self, topic, question_type="mc"):
         """
         Generiert eine Frage zum angegebenen Thema
         question_type: 'mc' für Multiple Choice, 'sc' für Single Choice
         """
-
         try:
             # 1. Relevante Dokumente zum Thema finden
             relevant_docs = self.vectorstore.similarity_search(
@@ -156,7 +153,7 @@ def generate_question(self, topic, question_type="mc"):
 
             # 2. Prompt für Frage
             doc = relevant_docs[0]
-            
+
             if question_type == "mc":
                 prompt_type = "Multiple-Choice-Frage (mehrere Antworten können richtig sein)"
             else:
@@ -192,9 +189,12 @@ def generate_question(self, topic, question_type="mc"):
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if not json_match:
                 return {"error": "Konnte keine gültige Frage generieren. Bitte versuchen Sie es erneut."}
-    
-            json_str = json_match.group(0)
-            question_data = json.loads(json_str)
+
+            try:
+                json_str = json_match.group(0)
+                question_data = json.loads(json_str)
+            except json.JSONDecodeError:
+                return {"error": "Konnte das JSON-Format nicht korrekt parsen. Bitte versuchen Sie es erneut."}
 
             # Speichere die korrekten Antworten für spätere Überprüfung
             self.last_correct_answers = question_data["correct_answers"]
