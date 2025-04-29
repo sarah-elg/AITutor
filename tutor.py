@@ -1,4 +1,5 @@
 from langchain_ollama import OllamaLLM
+from language_utils import detect_language, get_prompt_by_language, format_response_by_language, is_insufficient_answer
 
 class OptimizedBS2Tutor:
     def __init__(self, vectorstore):
@@ -11,6 +12,9 @@ class OptimizedBS2Tutor:
         Beantwortet eine Frage basierend auf dem Hauptskript und der Literatur
         """
         try:
+            # Erkenne die Sprache der Frage
+            language = detect_language(question)
+
             # 1. Suche zuerst im Hauptskript, wenn gewünscht
             if use_main_script_first:
                 # Suche mit Metadaten-Filter für Hauptskript
@@ -24,12 +28,12 @@ class OptimizedBS2Tutor:
                 # Wenn genügend relevante Dokumente im Hauptskript gefunden wurden
                 if len(main_docs) >= 2:
                     print("Generiere Antwort basierend auf Hauptskript...")
-                    answer = self._generate_answer(question, main_docs)
+                    answer, detected_language = self._generate_answer(question, main_docs)
                     print("Antwort generiert!")
 
                     # Prüfe, ob die Antwort ausreichend ist
-                    if not self._is_insufficient_answer(answer):
-                        return self._format_response(answer, main_docs, "Hauptskript")
+                    if not is_insufficient_answer(answer, detected_language):
+                        return self._format_response(answer, detected_language, main_docs, "Hauptskript")
 
             # 2. Suche in allen Dokumenten (Hauptskript + Literatur)
             print("Suche in allen Dokumenten...")
@@ -37,67 +41,30 @@ class OptimizedBS2Tutor:
             print(f"Gefunden: {len(all_docs)} relevante Dokumente insgesamt")
 
             print("Generiere Antwort basierend auf allen Quellen...")
-            answer = self._generate_answer(question, all_docs)
+            answer, detected_language = self._generate_answer(question, all_docs)
             print("Antwort generiert!")
 
-            return self._format_response(answer, all_docs, "Alle Quellen")
+            return self._format_response(answer, detected_language, all_docs, "Alle Quellen")
 
         except Exception as e:
             return f"Fehler bei der Verarbeitung der Frage: {e}"
 
-    def _is_insufficient_answer(self, answer):
-        """Prüft, ob eine Antwort unzureichend ist"""
-        insufficient_phrases = [
-            "keine ausreichenden informationen",
-            "nicht genügend informationen",
-            "keine informationen",
-            "nicht genug kontext",
-            "kann ich nicht beantworten",
-            "nicht in den bereitgestellten informationen"
-        ]
-
-        answer_lower = answer.lower()
-        return any(phrase in answer_lower for phrase in insufficient_phrases)
-
     def _generate_answer(self, question, documents):
         """Generiert eine Antwort basierend auf den relevanten Dokumenten"""
-        # Wähle den richtigen Prompt basierend auf der Sprache
-        prompt = f"""
-        Du bist ein hilfreicher BS2-Tutor für das Fach "Business Software 2".
-        Beantworte die folgende Frage basierend auf den gegebenen Informationen.
-        Verwende nur die bereitgestellten Informationen. Wenn du die Antwort nicht in den
-        Informationen findest, sage das ehrlich.
-        Antworte auf Deutsch.
+        # Erkenne die Sprache der Frage
+        language = detect_language(question)
 
-        Frage: {question}
-
-        Relevante Informationen:
-        """
-
-        for i, doc in enumerate(documents):
-            source_type = doc.metadata.get('source_type', 'Unbekannt')
-            file_name = doc.metadata.get('file_name', 'Unbekannt')
-            page = doc.metadata.get('page', 'Unbekannt')
-
-            prompt += f"\n[{i+1}] Quelle: {source_type} ({file_name}, Seite {page+1})\n"
-            prompt += f"{doc.page_content}\n"
+        # Erstelle den Prompt basierend auf der erkannten Sprache
+        prompt = get_prompt_by_language(language, question, documents)
 
         # Generiere Antwort
         answer = self.llm.invoke(prompt)
-        return answer
+        return answer, language
 
-    def _format_response(self, answer, documents, source_label):
+    def _format_response(self, answer, language, documents, source_label):
         """Formatiert die Antwort mit Quellenangaben"""
-        response = f"\nAntwort: {answer}\n\nQuellen ({source_label}):"
-
-        for i, doc in enumerate(documents):
-            source_type = doc.metadata.get('source_type', 'Unbekannt')
-            file_name = doc.metadata.get('file_name', 'Unbekannt')
-            page = doc.metadata.get('page', 'Unbekannt')
-
-            response += f"\n[{i+1}] {source_type}: {file_name}, Seite {page + 1}"
-
-        return response
+        # Formatiere die Antwort basierend auf der erkannten Sprache
+        return format_response_by_language(language, answer, documents, source_label)
 
     def generate_mc_question(self, topic):
         """Generiert eine Multiple-Choice-Frage zum angegebenen Thema"""
