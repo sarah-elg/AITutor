@@ -256,8 +256,6 @@ def get_input_styles():
     input[type="checkbox"]:checked {
         accent-color: #005CA9 !important;
     }
-
-
     """
 
 def get_checkbox_styles():
