@@ -64,8 +64,36 @@ class AnswerHandler:
 
         return result, self.interface.attempt_count, gr.update(visible=show_next)
 
+    def get_answer_context(self, question_text):
+        """Holt den Kontext und Metadaten für eine Frage aus dem Vektorspeicher"""
+        try:
+            # Suche im Vektorspeicher nach relevanten Dokumenten zur Frage
+            docs = self.interface.tutor.vectorstore.similarity_search(
+                question_text,
+                k=1,
+                filter={"source_type": "Hauptskript"}
+            )
+
+            if docs:
+                doc = docs[0]
+                return {
+                    "context": doc.page_content,
+                    "metadata": {
+                        "type": doc.metadata.get('source_type', 'Unknown'),
+                        "file": doc.metadata.get('file_name', 'Unknown'),
+                        "page": doc.metadata.get('page', 'Unknown')
+                    }
+                }
+        except Exception as e:
+            print(f"Fehler beim Abrufen des Kontexts: {e}")
+        return None
+    
     def _format_result_message(self, selected_keys, is_correct):
         """Formatiert die Ergebnismeldung basierend auf der Antwort"""
+        current_question = self.interface.question_queue[self.interface.current_question_index]
+        question_text = current_question.get('question_text', '')
+        context_data = self.get_answer_context(question_text)
+
         if self.interface.question_language == "de":
             result = f"Deine Antwort: {', '.join(selected_keys) if selected_keys else 'Keine Auswahl'}\n"
             if is_correct:
@@ -85,6 +113,12 @@ class AnswerHandler:
             else:
                 result += f"Unfortunately wrong. Attempt {self.interface.attempt_count}/{self.interface.max_attempts}!"
 
+        if context_data:
+            metadata = context_data["metadata"]
+            source_text = f"\n\nQuelle: {metadata['type']}, "
+            source_text += f"Datei: {metadata['file']}, "
+            source_text += f"Seite: {metadata['page']}"
+            result += source_text
         # Füge Hinweis zur nächsten Frage hinzu, wenn wir wechseln sollten
         move_to_next = is_correct or self.interface.attempt_count >= self.interface.max_attempts
         if move_to_next:
