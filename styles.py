@@ -7,7 +7,38 @@ def get_css_styles():
     {get_input_styles()}
     {get_checkbox_styles()}
     {get_example_styles()}
+    {get_logo_image_styles()}
     </style>
+    """
+
+def get_logo_image_styles():
+    return """
+    /* Entfernt Hintergrund, Rahmen und Icons vom Logo-Bild */
+    logo-img button,
+    logo-img .image-frame,
+    logo-img .svelte-w225pd,
+    logo-img .svelte-1pijsyv,
+    logo-img .icon,
+    logo-img .icon-button {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    logo-img .icon,
+    logo-img .icon-button {
+        display: none !important;
+    }
+    logo-img img {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        height: 120px !important;   /* Hier die gewünschte Höhe anpassen */
+        width: auto !important;     /* Oder width: 300px !important; für feste Breite */
+        object-fit: contain !important;
+        display: block;
+    }
     """
 
 def get_tab_styles():
