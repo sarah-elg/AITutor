@@ -6,7 +6,6 @@ from language_utils import get_error_message
 from prompts import (
     get_question_prompt,
     get_topic_extraction_prompt,
-    get_variation_instruction,
     get_validation_prompt,
     get_question_variation_prompt
 )
